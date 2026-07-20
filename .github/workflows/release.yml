@@ -19,7 +19,7 @@ jobs:
       - name: Install Crystal
         uses: crystal-lang/install-crystal@v1
         with:
-          crystal: 1.20.3
+          crystal: 1.20.2
 
       - name: Read and verify version sync
         id: ver
