@@ -1,0 +1,34 @@
+name: CI
+
+# Gates every pull request and every push to master: installs Crystal and the
+# (public) dependencies, checks formatting, lints with ameba, and runs the
+# offline spec suite. Radarr's only runtime dependency is the public `crest`
+# shard, so no private-dependency token is needed.
+on:
+  pull_request: {}
+  push:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Crystal
+        uses: crystal-lang/install-crystal@v1
+        with:
+          crystal: 1.20.3
+
+      - name: Install dependencies
+        run: shards install
+
+      - name: Check formatting
+        run: crystal tool format --check
+
+      - name: Lint (ameba)
+        run: bin/ameba
+
+      - name: Run specs
+        run: crystal spec
