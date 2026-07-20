@@ -1,0 +1,38 @@
+# Docker-driven integration test harness for the `radarr` Crystal shard.
+#
+# Brings up a single linuxserver/radarr instance with a DETERMINISTIC, pre-seeded
+# API key so the integration specs under spec/integration/ are reproducible.
+#
+# The API key is injected up front: scripts/radarr-testenv.sh seeds a config.xml
+# containing a fixed <ApiKey> into the (ephemeral) config dir BEFORE the first
+# boot, so both the container and the specs agree on the key with no read-back.
+#
+# All tunables come from the environment (with defaults that match
+# spec/integration_helper.cr):
+#   RADARR_PORT        host port to publish        (default 7878)
+#   RADARR_CONFIG_DIR  host path bind-mounted at /config (default /tmp/radarr-testenv-config)
+#   RADARR_PUID/PGID   ownership for the config dir (default 1000/1000)
+#   TZ                 container timezone           (default Etc/UTC)
+#
+# Usage is normally via scripts/radarr-testenv.sh (up | wait | apikey | down),
+# which exports the matching env before invoking docker compose.
+
+services:
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr-testenv
+    environment:
+      - PUID=${RADARR_PUID:-1000}
+      - PGID=${RADARR_PGID:-1000}
+      - TZ=${TZ:-Etc/UTC}
+    volumes:
+      - ${RADARR_CONFIG_DIR:-/tmp/radarr-testenv-config}:/config
+    ports:
+      - "${RADARR_PORT:-7878}:7878"
+    restart: "no"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:7878/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
