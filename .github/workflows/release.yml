@@ -1,0 +1,69 @@
+name: Release
+
+# Manually triggered. Reads the version from shard.yml (the source of truth),
+# requires src/radarr.cr's Radarr::VERSION to match, runs the spec suite, and
+# only on success creates the v<version> tag and a GitHub release.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Crystal
+        uses: crystal-lang/install-crystal@v1
+        with:
+          crystal: 1.20.3
+
+      - name: Read and verify version sync
+        id: ver
+        run: |
+          set -euo pipefail
+          shard_ver=$(sed -nE 's/^version:[[:space:]]*"?([^"[:space:]]+)"?.*/\1/p' shard.yml | head -1)
+          src_ver=$(sed -nE 's/.*VERSION[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' src/radarr.cr | head -1)
+          echo "shard.yml=$shard_ver  src/radarr.cr=$src_ver"
+          if [ -z "$shard_ver" ]; then
+            echo "::error::Could not read version from shard.yml"; exit 1
+          fi
+          if [ "$shard_ver" != "$src_ver" ]; then
+            echo "::error::Version mismatch — shard.yml='$shard_ver' vs src/radarr.cr='$src_ver'. Sync them before releasing."; exit 1
+          fi
+          echo "version=$shard_ver" >> "$GITHUB_OUTPUT"
+          echo "tag=v$shard_ver" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure the release does not already exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag='${{ steps.ver.outputs.tag }}'
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::error::Release $tag already exists."; exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::error::Tag $tag already exists."; exit 1
+          fi
+
+      - name: Install dependencies
+        run: shards install --without-development
+
+      - name: Run specs
+        run: crystal spec
+
+      - name: Create tag and GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag='${{ steps.ver.outputs.tag }}'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "Release $tag"
+          git push origin "$tag"
+          gh release create "$tag" --title "$tag" --generate-notes
