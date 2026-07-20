@@ -20,15 +20,8 @@ require "http/client"
 #
 #   RADARR_URL      (default http://localhost:7878)
 #   RADARR_API_KEY  (default 0123456789abcdef0123456789abcdef)
-
-# Unwraps a nilable value, failing the example (at the caller) if it is nil.
 #
-# Every generated model property is nilable (`T?`), so the integration specs
-# constantly need to assert a value is present before drilling into it.
-def present(value : T?, file = __FILE__, line = __LINE__) : T forall T
-  value.should_not(be_nil, file: file, line: line)
-  value.not_nil! # ameba:disable Lint/NotNil
-end
+# The `present` unwrap helper comes from spec_helper.cr (required above).
 
 module IntegrationHelper
   DEFAULT_URL     = "http://localhost:7878"
