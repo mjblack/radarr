@@ -221,18 +221,6 @@ reopens the class, never inside a generated file.
 Unit specs (`spec/model/*.cr`) run fully offline against fixture JSON and are
 part of the default `crystal spec` run. Integration specs
 (`spec/integration/*.cr`) exercise a **live Radarr container** and are opt-in
-— they're skipped unless explicitly enabled, so a plain `crystal spec` stays
-green and Docker-free:
-
-```sh
-RADARR_INTEGRATION=1 crystal spec spec/integration/
-```
-
-## Docker integration tests
-
-Unit specs (`spec/model/*.cr`) run fully offline against fixture JSON and are
-part of the default `crystal spec` run. Integration specs
-(`spec/integration/*.cr`) exercise a **live Radarr container** and are opt-in
 — they're skipped (reported as `pending`) unless explicitly enabled, so a
 plain `crystal spec` stays green and Docker-free.
 
