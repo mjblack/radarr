@@ -1,10 +1,10 @@
 name: radarr
-version: 0.1.0
+version: 0.1.1
 
 authors:
   - Matthew J. Black <mjblack@gmail.com>
 
-crystal: '>= 1.20.3'
+crystal: '>= 1.20.2'
 
 license: MIT
 
