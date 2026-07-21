@@ -2,21 +2,45 @@ require "./error"
 require "./query"
 
 class Radarr::Client
+  # Default time to wait for the server to send response data before giving up.
+  # Tunable globally via `Radarr::Client.default_read_timeout=`.
+  class_property default_read_timeout : Time::Span? = 30.seconds
+  # Default time to wait for the TCP connection to be established.
+  # Tunable globally via `Radarr::Client.default_connect_timeout=`.
+  class_property default_connect_timeout : Time::Span? = 10.seconds
+
   getter endpoint : URI
+  # The effective read timeout applied to every request.
+  getter read_timeout : Time::Span?
+  # The effective connect timeout applied to every request.
+  getter connect_timeout : Time::Span?
   @api_key : String
   @headers : Hash(String, String)
   @client : Crest::Resource
 
   @@instance : Radarr::Client?
 
-  private def initialize(@endpoint : URI, @api_key : String)
+  private def initialize(
+    @endpoint : URI,
+    @api_key : String,
+    read_timeout : Time::Span? = nil,
+    connect_timeout : Time::Span? = nil,
+  )
+    @read_timeout = read_timeout || @@default_read_timeout
+    @connect_timeout = connect_timeout || @@default_connect_timeout
     @headers = {
       "X-Api-Key" => @api_key,
       "Accept"    => "application/json",
     }
     # Kept for backwards compatibility with earlier revisions; the typed core
     # (`#request`) issues requests via `Crest::Request` directly.
-    @client = Crest::Resource.new(@endpoint.to_s, params: {"apikey" => @api_key}, headers: @headers)
+    @client = Crest::Resource.new(
+      @endpoint.to_s,
+      params: {"apikey" => @api_key},
+      headers: @headers,
+      read_timeout: @read_timeout,
+      connect_timeout: @connect_timeout,
+    )
   end
 
   # ---- Core primitive ------------------------------------------------------
@@ -52,9 +76,13 @@ class Radarr::Client
       form,
       headers: headers,
       params: query_string(query),
+      read_timeout: @read_timeout,
+      connect_timeout: @connect_timeout,
     )
   rescue ex : Crest::RequestFailed
     raise Radarr::ApiError.from_request_failed(ex)
+  rescue ex : IO::TimeoutError
+    raise Radarr::TimeoutError.from_timeout(ex)
   end
 
   # ---- Typed helpers -------------------------------------------------------
@@ -139,8 +167,13 @@ class Radarr::Client
 
   # ---- Singleton -----------------------------------------------------------
 
-  def self.new(endpoint : String, api_key : String)
-    @@instance = new(URI.parse(endpoint), api_key)
+  def self.new(
+    endpoint : String,
+    api_key : String,
+    read_timeout : Time::Span? = nil,
+    connect_timeout : Time::Span? = nil,
+  )
+    @@instance = new(URI.parse(endpoint), api_key, read_timeout, connect_timeout)
     instance
   end
 
