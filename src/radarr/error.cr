@@ -37,4 +37,21 @@ module Radarr
       new(response.status_code.to_i, response.body)
     end
   end
+
+  # Raised when a request exceeds the client's configured connect/read timeout.
+  #
+  # The client wraps the underlying `IO::TimeoutError` into this type so a slow
+  # or unresponsive server surfaces as a clear, rescuable `Radarr::Error`
+  # (a `Radarr::ApiError`) rather than leaking a raw `IO::TimeoutError`. It
+  # carries a synthetic `status_code` of `0` (no HTTP response was received).
+  class TimeoutError < ApiError
+    def initialize(message : String? = nil, @cause : Exception? = nil)
+      super(0, "", message || "Radarr API request timed out")
+    end
+
+    # Wraps a socket/connect timeout (`IO::TimeoutError`) into a typed error.
+    def self.from_timeout(ex : IO::TimeoutError) : TimeoutError
+      new("Radarr API request timed out: #{ex.message}", ex)
+    end
+  end
 end
